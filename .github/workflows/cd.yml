@@ -1,0 +1,138 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/cd.yml"
+  workflow_dispatch: {} # lets us trigger a deploy manually the day we record the demo
+
+permissions:
+  contents: read
+  packages: write      # push to GHCR
+  id-token: write       # required for AWS OIDC (no long-lived AWS keys in GitHub)
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  AWS_REGION: ap-south-1
+
+jobs:
+  build-and-push:
+    name: Build, scan, push image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        run: echo "tag=main-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image (load locally for scanning first)
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          load: true
+          tags: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+          severity: CRITICAL,HIGH
+          exit-code: "1" # block the deploy if the image itself has known CVEs
+
+      - name: Push image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+
+  deploy-staging:
+    name: Deploy to staging
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging   # auto-deploys, no reviewers required
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy via SSM Run Command
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:Environment,Values=dev" \
+            --comment "Deploy ${{ needs.build-and-push.outputs.image_tag }} to staging" \
+            --parameters '{"commands":["set -e",
+              "DB_HOST=$(aws ssm get-parameter --name /devops-8byte/dev/db/host --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_USER=$(aws ssm get-parameter --name /devops-8byte/dev/db/username --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_NAME=$(aws ssm get-parameter --name /devops-8byte/dev/db/name --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_PASS=$(aws ssm get-parameter --name /devops-8byte/dev/db/password --with-decryption --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_URL=\"postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}\"",
+              "docker pull ${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}",
+              "docker stop app || true", "docker rm app || true",
+              "docker run -d --name app --restart unless-stopped -p 80:5000 -e DATABASE_URL=\"$DB_URL\" ${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}"
+            ]}' \
+            --query "Command.CommandId" --output text)
+          echo "Sent SSM command $COMMAND_ID — check AWS Console > Systems Manager > Run Command for status."
+          # Give the agent a moment, then surface pass/fail so a broken deploy fails the job instead of looking green.
+          sleep 20
+          STATUS=$(aws ssm list-command-invocations --command-id "$COMMAND_ID" --query "CommandInvocations[0].Status" --output text)
+          echo "SSM invocation status: $STATUS"
+          [[ "$STATUS" == "Success" || "$STATUS" == "InProgress" || "$STATUS" == "Pending" ]]
+
+  deploy-production:
+    name: Deploy to production
+    needs: [build-and-push, deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production   # configure required reviewers in repo Settings > Environments — this is the manual approval gate
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy via SSM Run Command
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:Environment,Values=dev" \
+            --comment "Promote ${{ needs.build-and-push.outputs.image_tag }} to production" \
+            --parameters '{"commands":["set -e",
+              "DB_HOST=$(aws ssm get-parameter --name /devops-8byte/dev/db/host --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_USER=$(aws ssm get-parameter --name /devops-8byte/dev/db/username --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_NAME=$(aws ssm get-parameter --name /devops-8byte/dev/db/name --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_PASS=$(aws ssm get-parameter --name /devops-8byte/dev/db/password --with-decryption --query Parameter.Value --output text --region '"${AWS_REGION}"')",
+              "DB_URL=\"postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}\"",
+              "docker pull ${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}",
+              "docker stop app || true", "docker rm app || true",
+              "docker run -d --name app --restart unless-stopped -p 80:5000 -e DATABASE_URL=\"$DB_URL\" ${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}"
+            ]}'
+
+  notify-on-failure:
+    name: Notify on failure
+    needs: [build-and-push, deploy-staging, deploy-production]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack webhook notification
+        if: ${{ vars.SLACK_WEBHOOK_URL != '' }}
+        run: |
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":x: CD pipeline failed on main — ${{ github.sha }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "${{ vars.SLACK_WEBHOOK_URL }}"
