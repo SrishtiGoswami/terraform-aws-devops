@@ -1,0 +1,9 @@
+# Copy this file to terraform.tfvars and adjust as needed.
+# terraform.tfvars is gitignored — never commit real values.
+
+aws_region   = "ap-south-1"
+project_name = "devops-8byte"
+environment  = "dev"
+
+instance_type      = "t3.micro"
+db_instance_class  = "db.t3.micro"

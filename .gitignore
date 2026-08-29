@@ -1,0 +1,20 @@
+# Local .terraform directories
+**/.terraform/*
+
+# Terraform state files (we use remote S3 state, these shouldn't exist locally,
+# but ignore them as a safety net)
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Real variable files with potentially sensitive values
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# Lock file IS committed on purpose (pins provider versions) — do not ignore .terraform.lock.hcl
