@@ -130,7 +130,7 @@ jobs:
               "DB_URL=\"postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}\"",
               "docker pull ${{ needs.build-and-push.outputs.image }}:${{ needs.build-and-push.outputs.image_tag }}",
               "docker stop app || true", "docker rm app || true",
-              "docker run -d --name app --restart unless-stopped -p 80:5000 --log-driver awslogs --log-opt awslogs-region=ap-south-1 --log-opt awslogs-group=/devops-8byte/dev/app --log-opt awslogs-stream=production-$(date +%s) -e DATABASE_URL=\"$DB_URL\" ${{ needs.build-and-push.outputs.image }}:${{ needs.build-and-push.outputs.image_tag }}"
+              "docker run -d --name app --restart unless-stopped -p 8080:5000 --log-driver awslogs --log-opt awslogs-region=ap-south-1 --log-opt awslogs-group=/devops-8byte/dev/app --log-opt awslogs-stream=production-$(date +%s) -e DATABASE_URL=\"$DB_URL\" ${{ needs.build-and-push.outputs.image }}:${{ needs.build-and-push.outputs.image_tag }}"
             ]}'
 
   notify-on-failure:
