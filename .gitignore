@@ -18,3 +18,8 @@ crash.*.log
 terraform.rc
 
 # Lock file IS committed on purpose (pins provider versions) — do not ignore .terraform.lock.hcl
+
+#Add DS_Store to .gitignore
+#Also ignore it repo-wide in case it reappears in subfolders
+.DS_Store
+**/.DS_Store
