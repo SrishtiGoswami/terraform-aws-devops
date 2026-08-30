@@ -41,7 +41,17 @@ data "aws_iam_policy_document" "github_actions_trust" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      values = [
+        # Legacy format (for older repos / docs)
+        "repo:${var.github_repo}:ref:refs/heads/main",
+        "repo:${var.github_repo}:environment:staging",
+        "repo:${var.github_repo}:environment:production",
+
+        # Immutable format (what your repo actually emits)
+        "repo:SrishtiGoswami@85061371/terraform-aws-devops@1349548251:ref:refs/heads/main",
+        "repo:SrishtiGoswami@85061371/terraform-aws-devops@1349548251:environment:staging",
+        "repo:SrishtiGoswami@85061371/terraform-aws-devops@1349548251:environment:production",
+      ]
     }
   }
 }

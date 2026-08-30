@@ -88,3 +88,16 @@ variable "db_engine_version" {
   type        = string
   default     = "16"
 }
+
+# ---------- Monitoring ----------
+
+variable "alert_email" {
+  description = "Email address that receives CloudWatch alarm notifications via SNS"
+  type        = string
+}
+
+variable "log_retention_days" {
+  description = "Retention period for CloudWatch Log Groups"
+  type        = number
+  default     = 7
+}

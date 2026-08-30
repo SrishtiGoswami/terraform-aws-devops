@@ -15,10 +15,10 @@ resource "random_password" "db" {
 }
 
 resource "aws_ssm_parameter" "db_password" {
-  name   = "/${var.project_name}/${var.environment}/db/password"
-  type   = "SecureString"
-  value  = random_password.db.result
-  tags   = { Name = "${var.project_name}-db-password" }
+  name  = "/${var.project_name}/${var.environment}/db/password"
+  type  = "SecureString"
+  value = random_password.db.result
+  tags  = { Name = "${var.project_name}-db-password" }
 }
 
 resource "aws_ssm_parameter" "db_username" {
@@ -34,7 +34,7 @@ resource "aws_ssm_parameter" "db_host" {
 }
 
 resource "aws_ssm_parameter" "db_name" {
-  name  = "/${var.project_name}/${var.environment}/db/name"  #this is causing the error since our project name is starting with the character 8. we forgot to save this file so the error persisted.
+  name  = "/${var.project_name}/${var.environment}/db/name"
   type  = "String"
   value = var.db_name
 }
@@ -47,10 +47,10 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_db_instance" "main" {
-  identifier     = "db-${var.project_name}-${var.environment}"
-  engine         = "postgres"
+  identifier                 = "db-${var.project_name}-${var.environment}"
+  engine                     = "postgres"
   auto_minor_version_upgrade = true
-  engine_version = var.db_engine_version
+  engine_version             = var.db_engine_version
 
   instance_class    = var.db_instance_class
   allocated_storage = var.db_allocated_storage
@@ -65,14 +65,11 @@ resource "aws_db_instance" "main" {
   publicly_accessible    = false
   multi_az               = false # single-AZ keeps this in free tier; note in README as a prod trade-off
 
-  # Backup strategy (Part 4 requirement): automated daily backups,
-  # 7-day retention, all included free within the storage already
-  # allocated above — no extra charge.
   backup_retention_period = 1
-  backup_window            = "17:00-18:00" # UTC, low-traffic window
-  maintenance_window        = "sun:18:30-sun:19:30"
+  backup_window           = "17:00-18:00" # UTC, low-traffic window
+  maintenance_window      = "sun:18:30-sun:19:30"
 
-  skip_final_snapshot = true # set to false + provide a snapshot id for real prod use
+  skip_final_snapshot = true  # set to false + provide a snapshot id for real prod use
   deletion_protection = false # keep false so `terraform destroy` can clean up fully for zero-cost teardown
 
   tags = { Name = "${var.project_name}-${var.environment}-db" }

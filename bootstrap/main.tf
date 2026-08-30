@@ -46,6 +46,7 @@ resource "random_id" "suffix" {
 resource "aws_s3_bucket" "tf_state" {
   force_destroy = true
   bucket = "${var.project_name}-tfstate-${random_id.suffix.hex}"
+  #force_destroy = true
 
   # Safety net: Terraform-level guard (not an AWS setting) that blocks
   # `terraform destroy` from planning removal of this bucket, so a

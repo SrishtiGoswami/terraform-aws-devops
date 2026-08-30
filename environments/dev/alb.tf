@@ -15,8 +15,14 @@ resource "aws_lb" "main" {
   security_groups    = [aws_security_group.alb.id]
   subnets            = aws_subnet.public[*].id
 
-  # No deletion protection — keep destroy path clean for zero-cost teardown.
   enable_deletion_protection = false
+
+  access_logs {
+    bucket  = aws_s3_bucket.alb_logs.id
+    enabled = true
+  }
+
+  depends_on = [aws_s3_bucket_policy.alb_logs] # AWS validates bucket perms at ALB creation time
 
   tags = { Name = "${var.project_name}-alb" }
 }

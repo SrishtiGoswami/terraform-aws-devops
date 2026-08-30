@@ -19,7 +19,9 @@ resource "aws_instance" "app" {
   # SSH port, no key pair to lose, no bastion host needed.
 
   user_data = templatefile("${path.module}/scripts/user_data.sh.tpl", {
-    app_port = var.app_port
+    app_port     = var.app_port
+    project_name = var.project_name
+    environment  = var.environment
   })
 
   metadata_options {
