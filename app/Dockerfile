@@ -2,6 +2,8 @@
 
 FROM python:3.12-slim AS base
 
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 # Keep image lean and predictable
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

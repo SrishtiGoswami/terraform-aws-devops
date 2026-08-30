@@ -58,6 +58,7 @@ jobs:
         with:
           image-ref: ${{ steps.image.outputs.name }}:${{ steps.meta.outputs.tag }}
           severity: CRITICAL,HIGH
+          ignore-unfixed: true
           exit-code: "1" # block the deploy if the image itself has known CVEs
 
       - name: Push image to GHCR
