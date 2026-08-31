@@ -25,3 +25,8 @@ output "db_password_ssm_path" {
   description = "Where the generated DB password lives (never in state/output in plaintext by default — use `terraform output -json` carefully, this just shows the path)"
   value       = aws_ssm_parameter.db_password.name
 }
+
+output "sns_topic_arn" {
+  description = "ARN of the SNS topic for CloudWatch alarm notifications"
+  value       = aws_sns_topic.alerts.arn
+}
