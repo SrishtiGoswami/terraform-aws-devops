@@ -70,7 +70,7 @@ def health():
         db_ok = False
     status = "ok" if db_ok else "degraded"
     code = 200 if db_ok else 503
-    return jsonify(status=status, db=db_ok), code
+    return jsonify(status=status, db=db_ok, version="1.0.1"), code
 
 
 @app.get("/api/tasks")
