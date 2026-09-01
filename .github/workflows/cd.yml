@@ -6,7 +6,7 @@ on:
     paths:
       - "app/**"
       - ".github/workflows/cd.yml"
-  workflow_dispatch: {} # lets us trigger a deploy manually the day we record the demo
+  workflow_dispatch: {} # lets us trigger a deploy manually
 
 permissions:
   contents: read
