@@ -251,4 +251,3 @@ via `.gitignore` — the reason is specific to each category, not a blanket
 | `environments/dev/terraform.tfvars.example` | Template showing which variables need real values, with obviously-placeholder examples |
 | `environments/dev/scripts/user_data.sh.tpl` | EC2 boot script — installs Docker, the CloudWatch Agent, and runs a placeholder container so the ALB has something to health-check before the first real deploy |
 | `environments/dev/.terraform.lock.hcl` | Provider version lock file for this environment |
-
